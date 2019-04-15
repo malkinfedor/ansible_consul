@@ -1,0 +1,88 @@
+- name: Download and extract consul app
+  become: yes
+  unarchive:
+    src: https://releases.hashicorp.com/consul/{{CONSUL_VERSION}}/consul_{{CONSUL_VERSION}}_linux_amd64.zip
+    dest: "{{INSTALL_DIR}}"
+    remote_src: yes
+    owner: root
+    group: root
+
+- name: Add autocomplete
+  become: yes
+  shell: consul -autocomplete-install && complete -C /usr/local/bin/consul consul
+  ignore_errors: true
+- name: Add the consul group
+  group:
+    name: "{{USERNAME}}" 
+    state: present
+
+- name: Add the user 'consul' 
+  user:
+    name: "{{USERNAME}}"
+    home: /etc/consul.d 
+    shell: /bin/false
+    group: consul
+
+- name: Create data dir
+  file: 
+    path: /opt/consul
+    state: directory
+    owner: "{{USERNAME}}"
+    group: "{{USERNAME}}"
+
+- name: Copy systemd unit file
+  become: yes
+  template:
+    src: consul.service.j2
+    dest: /etc/systemd/system/consul.service
+    owner: root
+    group: root
+
+- name: Copy server config file
+  copy: 
+    src: server.hcl
+    dest: /etc/consul.d/server.hcl
+    owner: "{{USERNAME}}"
+    group: "{{USERNAME}}"
+   
+
+- name: Copy systemd unit file
+  become: yes
+  template:
+    src: consul.hcl.j2
+    dest: /etc/consul.d/consul.hcl
+    owner: "{{USERNAME}}"
+    group: "{{USERNAME}}"
+
+- name: Check data dir is empty or not
+  find: 
+    paths: "{{INSTALL_DIR}}" 
+    file_type: directory 
+    patterns: "*.*"
+  register: data_dir_empty
+  tags :
+    - debug
+- name: Bootstaping consul cluster
+  become: yes
+  become_user: "{{USERNAME}}"
+  shell: "nohup {{INSTALL_DIR}}consul agent -bootstrap -config-dir=/etc/consul.d/ -bind={{LISTEN_IP}} -advertise={{ADVERTISE_IP}} -client=0.0.0.0 &" 
+  when: data_dir_empty == 0  
+  tags:
+    - debug
+
+- name: Waiting for bootstraping consul cluster
+  pause: 
+    seconds: 80
+  when: data_dir_empty == 0
+
+- name: Kill consul bootstrap process  
+  become: yes
+  shell: pkill consul 
+  when: data_dir_empty == 0
+
+- name: Enable and start consult
+  systemd:
+    name: consul
+    state: started
+    enabled: yes
+

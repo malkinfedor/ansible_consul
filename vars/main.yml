@@ -1,0 +1,9 @@
+CONSUL_VERSION: 1.4.4
+INSTALL_DIR: /usr/bin/
+LISTEN_IP: 10.0.0.4
+ADVERTISE_IP: 10.0.0.4
+USERNAME: consul
+
+DATACENTER: '"dc1"'
+DATA_DIR: '"/opt/consul"'
+ENCRYPT: '"4iFUqz4hLpL9+c/UTAec+A=="'
